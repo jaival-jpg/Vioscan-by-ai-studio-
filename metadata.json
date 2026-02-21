@@ -1,0 +1,5 @@
+{
+  "name": "VioScan",
+  "description": "A modern QR code and barcode scanner application with generation capabilities.",
+  "requestFramePermissions": ["camera"]
+}
