@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import Scan from './pages/Scan';
 import Generate from './pages/Generate';
+import Result from './pages/Result';
 import History from './pages/History';
 import Settings from './pages/Settings';
 
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/generate" element={<Layout><Generate /></Layout>} />
           <Route path="/history" element={<Layout><History /></Layout>} />
           <Route path="/settings" element={<Layout><Settings /></Layout>} />
+          <Route path="/result" element={<Result />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

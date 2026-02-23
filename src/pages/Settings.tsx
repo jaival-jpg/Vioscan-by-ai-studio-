@@ -1,5 +1,5 @@
 import { useApp } from '../context/AppContext';
-import { Bell, Volume2, ExternalLink, Layers, Download, Trash2, Info, ChevronRight, Smartphone } from 'lucide-react';
+import { Bell, Volume2, ExternalLink, Layers, Download, Trash2, Info, ChevronRight, Smartphone, User } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Settings() {
@@ -140,6 +140,15 @@ export default function Settings() {
           <div>
             <h3 className="text-white font-medium text-sm">VioScan</h3>
             <p className="text-xs text-gray-500">Version 1.0.0</p>
+          </div>
+        </div>
+        <div className="bg-[#151522] p-4 rounded-2xl border border-white/5 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-[#1E1E2E] flex items-center justify-center text-gray-400">
+            <User className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-white font-medium text-sm">Developer</h3>
+            <p className="text-xs text-gray-500">Jaival Pandya</p>
           </div>
         </div>
       </div>

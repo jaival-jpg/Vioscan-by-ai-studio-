@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Search, Trash2, Heart, Copy, Filter, QrCode, ScanLine, X, CheckSquare, Square } from 'lucide-react';
+import { Search, Trash2, Heart, Copy, Filter, QrCode, ScanLine, X, CheckSquare, Square, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 export default function History() {
   const { history, toggleFavorite, deleteItems, clearHistory } = useApp();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'QR' | 'BARCODE' | 'FAVORITES'>('ALL');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -35,10 +37,38 @@ export default function History() {
 
   const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (confirm(`Delete ${selectedIds.size} items permanently?`)) {
-      deleteItems(Array.from(selectedIds));
-      setSelectedIds(new Set());
-      setIsSelectionMode(false);
+    
+    // Direct confirmation without timeout to avoid popup blocking issues
+    if (window.confirm(`Are you sure you want to permanently delete these ${selectedIds.size} items?`)) {
+        const idsToDelete = Array.from(selectedIds);
+        deleteItems(idsToDelete);
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+    }
+  };
+
+  const handleItemClick = (item: any) => {
+    if (isSelectionMode) {
+      toggleSelection(item.id);
+    } else {
+      navigate('/result', { state: { content: item.content, type: item.type } });
+    }
+  };
+
+  const handleShare = async (item: any) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Scanned Code',
+          text: item.content,
+        });
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(item.content);
+      alert('Copied to clipboard');
     }
   };
 
@@ -139,7 +169,7 @@ export default function History() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                onClick={() => isSelectionMode && toggleSelection(item.id)}
+                onClick={() => handleItemClick(item)}
                 className={`bg-[#151522] p-4 rounded-2xl border flex gap-4 group cursor-pointer transition-colors ${
                   isSelectionMode && selectedIds.has(item.id) 
                     ? 'border-[#6C5DD3] bg-[#6C5DD3]/5' 
@@ -183,6 +213,12 @@ export default function History() {
                   <div className="flex flex-col justify-between items-end gap-2">
                     <button onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}>
                       <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-[#FF3D71] text-[#FF3D71]' : 'text-gray-500'}`} />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleShare(item); }}
+                      className="text-gray-500 hover:text-white"
+                    >
+                      <Share2 className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item.content); }}

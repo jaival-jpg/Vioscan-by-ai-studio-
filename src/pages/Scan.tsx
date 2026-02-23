@@ -46,10 +46,21 @@ export default function Scan() {
       mounted = false;
       // Cleanup on unmount
       if (scannerRef.current) {
-        if (scannerRef.current.isScanning) {
-          scannerRef.current.stop().catch(console.error);
+        const scanner = scannerRef.current;
+        // If scanning, stop first then clear
+        if (scanner.isScanning) {
+          scanner.stop()
+            .then(() => {
+                try { scanner.clear(); } catch (e) { console.error("Failed to clear after stop", e); }
+            })
+            .catch((err) => {
+                console.error("Failed to stop scanner during cleanup", err);
+            });
+        } else {
+            // If not scanning, just clear
+            try { scanner.clear(); } catch (e) { console.error("Failed to clear scanner", e); }
         }
-        scannerRef.current.clear();
+        // Unlink ref immediately
         scannerRef.current = null;
       }
     };
@@ -73,60 +84,65 @@ export default function Scan() {
 
       try {
         // Check if already scanning to avoid double start
-        // Use a try-catch block for isScanning access as it might throw if state is invalid
         try {
             if (scannerRef.current.isScanning) return;
         } catch (e) {
-            // If checking isScanning fails, assume it's not scanning or invalid state
             console.warn("Error checking isScanning state", e);
         }
 
-        // Request permission explicitly first to handle errors better
-        try {
-           const stream = await navigator.mediaDevices.getUserMedia({ 
-             video: { facingMode: "environment" } 
-           });
-           // IMPORTANT: Stop the tracks immediately to release the camera
-           // Otherwise Html5Qrcode might fail to acquire it because it's "busy"
-           stream.getTracks().forEach(track => track.stop());
-           setPermissionGranted(true);
-        } catch (err: any) {
-           console.error("Permission denied", err);
-           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-             setError("Camera permission denied. Please allow camera access in your browser settings.");
-           } else {
-             setError(`Camera error: ${err.message || err}`);
-           }
-           return;
-        }
+        // Direct start with constraints - most robust method
+        // We skip explicit getUserMedia and getCameras to avoid resource contention
+        // and let the library handle the permission flow naturally.
+        
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+        };
 
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length) {
-          // Use the back camera by default
-          const cameraId = devices[0].id;
-          
-          await scannerRef.current.start(
-            { facingMode: "environment" },
-            {
-              fps: 10,
-              qrbox: { width: 250, height: 250 },
-              aspectRatio: 1.0,
-            },
-            (decodedText, decodedResult) => {
-              if (mounted) handleScanSuccess(decodedText, decodedResult);
-            },
-            (errorMessage) => {
-              // parse error, ignore it.
+        try {
+            await scannerRef.current.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText, decodedResult) => {
+                    if (mounted) handleScanSuccess(decodedText, decodedResult);
+                },
+                () => {} // Ignore frame errors
+            );
+            setError(null);
+        } catch (err: any) {
+            console.error("Primary start failed", err);
+            
+            // If environment camera fails, try without specific facing mode (fallback)
+            try {
+                console.log("Attempting fallback camera start...");
+                await scannerRef.current.start(
+                    { facingMode: "user" }, // Try front camera or default
+                    config,
+                    (decodedText, decodedResult) => {
+                        if (mounted) handleScanSuccess(decodedText, decodedResult);
+                    },
+                    () => {}
+                );
+                setError(null);
+            } catch (fallbackErr: any) {
+                console.error("Fallback start failed", fallbackErr);
+                
+                // Construct user-friendly error message
+                let msg = "Failed to start camera.";
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    msg = "Camera permission denied. Please allow access in settings.";
+                } else if (err.name === 'NotFoundError') {
+                    msg = "No camera found on this device.";
+                } else if (err.name === 'NotReadableError' || err.message?.includes('video source')) {
+                    msg = "Camera is busy or not readable. Please restart the app or device.";
+                }
+                setError(msg);
             }
-          );
-          setError(null);
-        } else {
-          setError("No cameras found on this device.");
         }
       } catch (err: any) {
-        console.error("Start failed", err);
-        // Show specific error message for better debugging
-        setError(`Failed to start camera: ${err?.message || err}`);
+        console.error("Critical camera error", err);
+        setError(`Camera error: ${err?.message || "Unknown error"}`);
       }
     };
 
@@ -143,6 +159,34 @@ export default function Scan() {
     };
   }, [isScanning, error]);
 
+  const playScanSound = () => {
+    if (!settings.soundEnabled) return;
+    
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {
+      console.error("Audio play failed", e);
+    }
+  };
+
   const handleScanSuccess = async (decodedText: string, decodedResult: any) => {
     if (scannerRef.current) {
       try {
@@ -151,10 +195,8 @@ export default function Scan() {
         }
         setIsScanning(false);
         
-        if (settings.soundEnabled) {
-          const audio = new Audio('/beep.mp3');
-          audio.play().catch(() => {});
-        }
+        playScanSound();
+        
         if (settings.vibrationEnabled && navigator.vibrate) {
           navigator.vibrate(200);
         }
@@ -175,7 +217,13 @@ export default function Scan() {
           window.open(decodedText, '_blank');
         }
         
-        navigate('/history');
+        // Navigate to result page with content
+        navigate('/result', { 
+          state: { 
+            content: decodedText, 
+            type 
+          } 
+        });
       } catch (e) {
         console.error("Error stopping scanner", e);
       }
@@ -210,22 +258,44 @@ export default function Scan() {
         }
 
         // Scan the file
-        const decodedText = await scannerRef.current.scanFile(imageFile, true);
-        handleScanSuccess(decodedText, null);
+        try {
+            const decodedText = await scannerRef.current.scanFile(imageFile, true);
+            handleScanSuccess(decodedText, null);
+        } catch (scanErr: any) {
+            console.warn("File scan failed", scanErr);
+            // Check for specific "No MultiFormat Readers" error
+            if (scanErr?.toString().includes("No MultiFormat Readers") || scanErr?.toString().includes("NotFoundException")) {
+                setError("No QR code found in the selected image. Please try a clearer image.");
+            } else {
+                setError("Could not read QR code from image. Please try another image.");
+            }
+            setIsScanning(false);
+        }
       } catch (err) {
-        console.error("File scan error", err);
-        setError("Could not read QR code from image. Please try another image.");
-        setIsScanning(false); // Keep it false to show the error state
+        console.error("File scan setup error", err);
+        setError("Error accessing file. Please try again.");
+        setIsScanning(false); 
       }
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     setError(null);
     setIsScanning(true);
-    // Force re-render of scanner component if needed
+    
     if (scannerRef.current) {
-        scannerRef.current.clear();
+        try {
+            if (scannerRef.current.isScanning) {
+                await scannerRef.current.stop();
+            }
+            try {
+                await scannerRef.current.clear();
+            } catch (e) {
+                console.warn("Clear failed in retry", e);
+            }
+        } catch (e) {
+            console.error("Failed to reset scanner for retry", e);
+        }
     }
   };
 
