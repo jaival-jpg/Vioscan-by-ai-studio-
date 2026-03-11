@@ -14,7 +14,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/scan" element={<Scan />} />
-          <Route path="/" element={<Layout><Home /></Layout>} />
+          <Route path="/home" element={<Layout><Home /></Layout>} />
+          <Route path="/" element={<Navigate to="/scan" replace />} />
           <Route path="/generate" element={<Layout><Generate /></Layout>} />
           <Route path="/history" element={<Layout><History /></Layout>} />
           <Route path="/settings" element={<Layout><Settings /></Layout>} />

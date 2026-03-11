@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Home, Grid, ScanLine, History, Settings } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -6,13 +6,44 @@ import { motion } from 'motion/react';
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
+  useEffect(() => {
+    // Social Bar Ad Script
+    const socialAdSrc = "https://pl28895345.effectivegatecpm.com/cc/b0/1b/ccb01bc32f965e8c2238d1b45ec4a146.js";
+    if (!document.querySelector(`script[src="${socialAdSrc}"]`)) {
+      const script = document.createElement('script');
+      script.src = socialAdSrc;
+      script.async = true;
+      document.body.appendChild(script);
+    }
+
+    return () => {
+      const script = document.querySelector(`script[src="${socialAdSrc}"]`);
+      if (script) {
+        script.remove();
+      }
+    };
+  }, []);
+
   const navItems = [
-    { icon: Home, label: 'Home', path: '/' },
-    { icon: Grid, label: 'Generate', path: '/generate' },
+    { icon: Home, label: 'Home', path: '/home' },
+    { icon: Grid, label: 'Generate', path: '/generate', triggerAd: true },
     { icon: ScanLine, label: 'Scan', path: '/scan', isFab: true },
-    { icon: History, label: 'History', path: '/history' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
+    { icon: History, label: 'History', path: '/history', triggerAd: true },
+    { icon: Settings, label: 'Settings', path: '/settings', triggerAd: true },
   ];
+
+  const handleNavClick = (triggerAd?: boolean) => {
+    if (triggerAd) {
+      // Popunder Ad Script
+      const scriptSrc = "https://pl28895081.effectivegatecpm.com/2a/65/8b/2a658be559987daa8d2ca7095b9f4d38.js";
+      if (!document.querySelector(`script[src="${scriptSrc}"]`)) {
+        const script = document.createElement('script');
+        script.src = scriptSrc;
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    }
+  };
 
   return (
     <div className="h-full w-full bg-[#0B0B15] text-white relative overflow-hidden flex flex-col">
@@ -31,6 +62,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.path}
                     to={item.path}
+                    onClick={() => handleNavClick(item.triggerAd)}
                     className="relative -top-6"
                   >
                     <motion.div
@@ -47,6 +79,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={() => handleNavClick(item.triggerAd)}
                   className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-colors ${
                     isActive ? 'text-[#6C5DD3]' : 'text-gray-500 hover:text-gray-300'
                   }`}

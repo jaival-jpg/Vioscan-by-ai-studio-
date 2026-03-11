@@ -299,11 +299,19 @@ export default function Scan() {
     }
   };
 
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/home', { replace: true });
+    }
+  };
+
   return (
     <div className="h-screen bg-black relative flex flex-col">
       {/* Header Overlay */}
       <div className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-full bg-black/40 text-white backdrop-blur-md">
+        <button onClick={handleBack} className="p-2 rounded-full bg-black/40 text-white backdrop-blur-md">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 className="text-white font-semibold">Scan QR/Barcode</h1>
